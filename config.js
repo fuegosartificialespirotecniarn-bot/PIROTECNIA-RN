@@ -12,8 +12,7 @@ window.FIREBASE_CONFIG = {
 };
 
 // 3) Contraseña del panel admin (hash PBKDF2, no es la contraseña en texto).
-//    Generalo abriendo hash.html y pegá acá los dos valores.
-window.ADMIN = { salt: "", hash: "", iter: 210000 };
+window.ADMIN = { salt: "C7d2EQJH+I7B4dxGTHBITA==", hash: "K9BibEX6VPvdTyIB0/kkaQDgBdtjIyUgBjRNuMXCwpg=", iter: 210000 };
 
 // 4) Categorías (el orden es el que se muestra en la tienda).
 window.CATEGORIES = ["Fuegos artificiales", "Infantiles", "Tortas", "Cañas", "Morteros", "Petardos"];
