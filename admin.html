@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es-AR" data-theme="dark">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Admin · Pirotecnia RN</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+.box{max-width:960px;margin:30px auto;padding:0 20px}
+form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0 28px}
+label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
+input,select{padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--tx);font:inherit}
+.row{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row img{width:48px;height:48px;object-fit:cover;border-radius:8px;background:#000}
+.row div{flex:1}.row small{color:var(--mut)}
+.row button{padding:8px 12px}
+.msg{color:var(--or2);min-height:22px}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Admin · Pirotecnia RN</h1>
+  <div id="login">
+    <form class="f" id="lf">
+      <label>Email<input type="email" id="em" required></label>
+      <label>Contraseña<input type="password" id="pw" required></label>
+      <button class="btn solid">Entrar</button>
+    </form>
+  </div>
+  <div id="panel" hidden>
+    <p><a href="index.html">← Ver tienda</a> · <button class="link" id="out">Salir</button></p>
+    <form class="f" id="pf">
+      <label>Nombre<input id="name" required></label>
+      <label>Precio<input id="price" type="number" min="0" required></label>
+      <label>Precio llevando 5 o más (opcional)<input id="bulk" type="number" min="0"></label>
+      <label>Stock<input id="stock" type="number" min="0" required></label>
+      <label>Categoría<select id="cat"></select></label>
+      <label>Foto<input id="img" type="file" accept="image/*"></label>
+      <label>Visible en la tienda<select id="act"><option value="1">Sí</option><option value="0">No</option></select></label>
+      <button class="btn solid" id="save">Guardar producto</button>
+      <button class="btn" type="button" id="cancel" hidden>Cancelar edición</button>
+    </form>
+    <p class="msg" id="msg"></p>
+    <div id="rows"></div>
+  </div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+const $ = s => document.querySelector(s), say = t => $("#msg").textContent = t;
+if (!FIREBASE_CONFIG.projectId) { document.body.innerHTML = "<p style='padding:30px;color:#fff'>Completá la configuración de Firebase en config.js (ver README).</p>"; throw 0; }
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth(), col = firebase.firestore().collection("products");
+let items = [], editing = null, image = "";
+$("#cat").innerHTML = CATEGORIES.map(c => `<option>${c}</option>`).join("");
+
+$("#lf").onsubmit = e => { e.preventDefault(); auth.signInWithEmailAndPassword($("#em").value, $("#pw").value).catch(() => alert("Email o contraseña incorrectos.")); };
+$("#out").onclick = () => auth.signOut();
+auth.onAuthStateChanged(u => { $("#login").hidden = !!u; $("#panel").hidden = !u; if (u) col.orderBy("name").onSnapshot(s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); draw(); }); });
+
+// Reduce la foto a ~700px para que entre gratis en Firestore (sin Storage).
+$("#img").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image(); im.onload = () => {
+    const k = Math.min(1, 700 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+    c.width = im.width * k; c.height = im.height * k; c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+    image = c.toDataURL("image/jpeg", .75); say("Foto lista.");
+  }; im.src = URL.createObjectURL(f);
+};
+
+$("#pf").onsubmit = async e => {
+  e.preventDefault();
+  const d = { name: $("#name").value.trim(), price: +$("#price").value, stock: +$("#stock").value, category: $("#cat").value, active: $("#act").value === "1" };
+  if ($("#bulk").value) d.bulkPrice = +$("#bulk").value; else d.bulkPrice = firebase.firestore.FieldValue.delete();
+  if (image) d.image = image;
+  try { editing ? await col.doc(editing).update(d) : await col.add({ ...d, bulkPrice: d.bulkPrice instanceof Object ? null : d.bulkPrice }); say("Producto guardado."); reset(); }
+  catch (err) { say("No se pudo guardar: " + err.message); }
+};
+function reset() { editing = null; image = ""; $("#pf").reset(); $("#cancel").hidden = true; }
+$("#cancel").onclick = reset;
+
+function draw() {
+  $("#rows").innerHTML = items.map(p => `<div class="row"><img src="${p.image || ""}" alt=""><div><b>${p.name}</b><br><small>${p.category} · $${p.price} · stock ${p.stock}${p.active === false ? " · oculto" : ""}</small></div>
+    <button class="btn" data-e="${p.id}">Editar</button><button class="btn" data-d="${p.id}">Borrar</button></div>`).join("") || "<p class='empty'>Todavía no cargaste productos.</p>";
+}
+$("#rows").onclick = async e => {
+  const p = items.find(x => x.id === (e.target.dataset.e || e.target.dataset.d)); if (!p) return;
+  if (e.target.dataset.d) { if (confirm(`¿Borrar "${p.name}"?`)) col.doc(p.id).delete(); return; }
+  editing = p.id; image = "";
+  $("#name").value = p.name; $("#price").value = p.price; $("#bulk").value = p.bulkPrice || ""; $("#stock").value = p.stock;
+  $("#cat").value = p.category; $("#act").value = p.active === false ? "0" : "1"; $("#cancel").hidden = false; scrollTo(0, 0);
+  say("Editando: " + p.name + " (si no elegís foto nueva, se mantiene la actual).");
+};
+</script>
+</body>
+</html>
