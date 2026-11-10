@@ -1,14 +1,13 @@
 // 1) Número de WhatsApp: código de país + 9 + código de área + número, sin + ni espacios.
 window.WA_NUMBER = "5492920251745";
 
-// 2) Firebase. Faltan apiKey y appId: los sacás de Configuración del proyecto → Tus apps → Web.
-//    Mientras apiKey esté vacío, la tienda muestra productos de ejemplo.
+// 2) Firebase
 window.FIREBASE_CONFIG = {
-  apiKey: "",
+  apiKey: "AIzaSyBGPXY7Azn7FSQ_pmE33K-BhlDvtulhjdE",
   authDomain: "pirotecniarn.firebaseapp.com",
   projectId: "pirotecniarn",
   messagingSenderId: "164633107517",
-  appId: ""
+  appId: "1:164633107517:web:75e108f8c76fbbb3f95e54"
 };
 
 // 3) Contraseña del panel admin (hash PBKDF2, no es la contraseña en texto).
