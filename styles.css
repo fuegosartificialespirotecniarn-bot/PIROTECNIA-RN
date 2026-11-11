@@ -100,3 +100,7 @@ footer{background:var(--bg2);border-top:1px solid var(--line)}
 #pwShade{display:grid;place-items:center;z-index:70}
 .pwbox{background:var(--bg2);border:1px solid var(--line);border-radius:16px;padding:24px;width:min(340px,90vw);display:grid;gap:12px}
 .pwbox input{padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--tx);font:inherit}
+
+.btns{display:grid;gap:8px;margin-top:4px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,30px);opacity:0;pointer-events:none;z-index:80;background:var(--or);color:var(--on);font-weight:600;padding:12px 20px;border-radius:12px;max-width:90vw;text-align:center;transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
