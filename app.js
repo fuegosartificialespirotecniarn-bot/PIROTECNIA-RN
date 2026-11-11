@@ -46,7 +46,7 @@ function card(p) {
     <div class="ci"><h3>${p.name}</h3><div class="price">${money(p.price)}</div>
     ${p.bulkPrice ? `<div class="bulk">Llevando ${BULK} o más productos surtidos: <b>${money(p.bulkPrice)}</b></div>` : ""}
     ${out ? `<div class="stock">Sin stock</div>` : `<div class="qty"><button data-m="${p.id}">−</button><span>${q}</span><button data-p="${p.id}">+</button></div>
-    <div class="stock">Stock: ${p.stock}</div><button class="btn solid" data-add="${p.id}">Agregar</button>`}</div></article>`;
+    <div class="stock">Stock: ${p.stock}</div><div class="btns"><button class="btn" data-add="${p.id}">Añadir al carrito</button><button class="btn solid" data-buy="${p.id}">Comprar</button></div>`}</div></article>`;
 }
 
 function renderList() {
@@ -61,22 +61,28 @@ function renderList() {
 $("#cats").onclick = e => { const b = e.target.closest("button"); if (b) { cat = b.dataset.c; renderCats(); renderList(); } };
 $("#q").oninput = e => { term = e.target.value; renderList(); };
 $("#list").onclick = e => {
-  const t = e.target, id = t.dataset.p || t.dataset.m || t.dataset.add;
+  const t = e.target, id = t.dataset.p || t.dataset.m || t.dataset.add || t.dataset.buy;
   const p = products.find(x => x.id === (id || (t.closest("[data-zoom]") || {}).dataset?.zoom));
   if (!p) return;
   if (t.dataset.p) { picks[id] = Math.min(p.stock, (picks[id] || 1) + 1); renderList(); }
   else if (t.dataset.m) { picks[id] = Math.max(1, (picks[id] || 1) - 1); renderList(); }
   else if (t.dataset.add) {
-    cart[id] = Math.min(p.stock, (cart[id] || 0) + (picks[id] || 1)); picks[id] = 1;
-    save(); renderList(); renderCart(); toggle(true);
+    const before = cart[id] || 0, want = picks[id] || 1;
+    cart[id] = Math.min(p.stock, before + want); picks[id] = 1;
+    const added = cart[id] - before;
+    save(); renderList(); renderCart();
+    toast(added ? `Añadido al carrito: ${added} x ${p.name}` : "Ya tenés todo el stock disponible en tu pedido");
+  } else if (t.dataset.buy) {
+    const want = Math.min(p.stock, picks[id] || 1); picks[id] = 1;
+    finish({ [id]: want });
   } else if (t.closest("[data-zoom]")) { $("#lb").src = p.image; $("#lbShade").hidden = false; }
 };
 $("#lbShade").onclick = () => $("#lbShade").hidden = true;
 
 // ---------- Pedido ----------
 const save = () => localStorage.setItem("rn-cart", JSON.stringify(cart));
-function lines() {
-  const rows = Object.entries(cart).map(([id, qty]) => ({ p: products.find(x => x.id === id), qty })).filter(r => r.p);
+function lines(src = cart) {
+  const rows = Object.entries(src).map(([id, qty]) => ({ p: products.find(x => x.id === id), qty })).filter(r => r.p);
   const units = rows.reduce((a, r) => a + r.qty, 0), bulk = units >= BULK;
   rows.forEach(r => { r.unit = bulk && r.p.bulkPrice ? r.p.bulkPrice : r.p.price; r.sub = r.unit * r.qty; });
   return { rows, units, bulk, total: rows.reduce((a, r) => a + r.sub, 0) };
@@ -99,12 +105,37 @@ $("#items").onclick = e => {
   save(); renderCart();
 };
 $("#clear").onclick = () => { cart = {}; save(); renderCart(); };
-$("#send").onclick = () => {
-  const { rows, bulk, total } = lines();
+$("#send").onclick = () => finish(cart);
+
+// Arma el mensaje, abre WhatsApp y descuenta el stock de lo comprado.
+function finish(src) {
+  const { rows, bulk, total } = lines(src);
+  if (!rows.length) return;
   const msg = `Hola! Quiero hacer este pedido:\n\n` + rows.map(r => `• ${r.qty} x ${r.p.name} — ${money(r.sub)}`).join("\n") +
     `\n\n${bulk ? "(Precio por cantidad aplicado)\n" : ""}Total: ${money(total)}\n\n¿Me confirman stock y coordinamos entrega y pago?`;
-  window.open(waLink(msg), "_blank");
-};
+  window.open(waLink(msg), "_blank"); // primero, para que el celular no lo bloquee
+  if (src === cart) { cart = {}; save(); toggle(false); }
+  takeStock(rows);
+  renderAll();
+}
+async function takeStock(rows) {
+  if (!(cfg && cfg.apiKey && cfg.projectId)) { // modo ejemplo
+    rows.forEach(r => { const p = products.find(x => x.id === r.p.id); if (p) p.stock = Math.max(0, p.stock - r.qty); });
+    return renderAll();
+  }
+  const db = firebase.firestore();
+  for (const r of rows) {
+    const ref = db.collection("products").doc(r.p.id);
+    try {
+      await db.runTransaction(async t => {
+        const snap = await t.get(ref);
+        if (snap.exists) t.update(ref, { stock: Math.max(0, (snap.data().stock || 0) - r.qty) });
+      });
+    } catch (err) { console.error("No se pudo actualizar el stock", err); }
+  }
+}
+let toastTimer;
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2200); }
 function toggle(open) { $("#drawer").classList.toggle("open", open); $("#shade").hidden = !open; $("#drawer").setAttribute("aria-hidden", !open); }
 $("#openCart").onclick = () => toggle(true); $("#closeCart").onclick = $("#shade").onclick = () => toggle(false);
 
