@@ -14,7 +14,7 @@ window.FIREBASE_CONFIG = {
 window.ADMIN = { salt: "C7d2EQJH+I7B4dxGTHBITA==", hash: "K9BibEX6VPvdTyIB0/kkaQDgBdtjIyUgBjRNuMXCwpg=", iter: 210000 };
 
 // 4) Categorías (el orden es el que se muestra en la tienda).
-window.CATEGORIES = ["Fuegos artificiales", "Infantiles", "Tortas", "Cañas", "Morteros", "Petardos"];
+window.CATEGORIES = ["Fuegos artificiales", "Infantiles", "Tortas", "Cañas", "Morteros", "Petardos", "Bengalas de humo", "Combos"];
 
 // 5) Llevando esta cantidad de unidades o más, se aplica el precio mayorista de cada producto.
 window.BULK_MIN = 5;
