@@ -46,7 +46,7 @@ function card(p) {
     <div class="ci"><h3>${p.name}</h3><div class="price">${money(p.price)}</div>
     ${p.bulkPrice ? `<div class="bulk">Llevando ${BULK} o más productos surtidos: <b>${money(p.bulkPrice)}</b></div>` : ""}
     ${out ? `<div class="stock">Sin stock</div>` : `<div class="qty"><button data-m="${p.id}">−</button><span>${q}</span><button data-p="${p.id}">+</button></div>
-    <div class="stock">Stock: ${p.stock}</div><div class="btns"><button class="btn" data-add="${p.id}">Añadir al carrito</button><button class="btn solid" data-buy="${p.id}">Comprar</button></div>`}</div></article>`;
+    <div class="stock">${p.stock === 1 ? "¡ÚLTIMO DISPONIBLE!" : "Stock: " + p.stock}</div><div class="btns"><button class="btn" data-add="${p.id}">Añadir al carrito</button><button class="btn solid" data-buy="${p.id}">Comprar</button></div>`}</div></article>`;
 }
 
 function renderList() {
