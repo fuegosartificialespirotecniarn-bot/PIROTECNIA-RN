@@ -11,6 +11,8 @@
 form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:16px 0 28px}
 label{display:grid;gap:4px;font-size:13px;color:var(--mut)}
 input,select{padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--tx);font:inherit}
+.chk{display:flex;align-items:center;gap:10px;grid-column:1/-1;font-size:15px;color:var(--tx);background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:11px}
+.chk input{width:18px;height:18px;padding:0;accent-color:var(--or)}
 .row{display:flex;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .row img{width:48px;height:48px;object-fit:cover;border-radius:8px;background:#000}
 .row div{flex:1}.row small{color:var(--mut)}
@@ -25,7 +27,9 @@ input,select{padding:11px;border-radius:10px;border:1px solid var(--line);backgr
     <p><a href="index.html">← Ver tienda</a> · <button class="link" id="out">Salir</button></p>
     <form class="f" id="pf">
       <label>Nombre<input id="name" required></label>
-      <label>Precio<input id="price" type="number" min="0" required></label>
+      <label><span id="priceLbl">Precio</span><input id="price" type="number" min="0" required></label>
+      <label class="chk"><input type="checkbox" id="sale"> Producto en oferta (mostrar precio de antes tachado)</label>
+      <label id="oldWrap" hidden>Precio de antes (tachado)<input id="old" type="number" min="0"></label>
       <label>Precio llevando 5 o más (opcional)<input id="bulk" type="number" min="0"></label>
       <label>Stock<input id="stock" type="number" min="0" required></label>
       <label>Categoría<select id="cat"></select></label>
@@ -46,9 +50,17 @@ if (sessionStorage.getItem("rn-admin") !== "1") location.replace("index.html");
 const $ = s => document.querySelector(s), say = t => $("#msg").textContent = t;
 if (!FIREBASE_CONFIG.apiKey) { document.body.innerHTML = "<p style='padding:30px;color:#fff'>Completá la configuración de Firebase en config.js (ver README).</p>"; throw 0; }
 firebase.initializeApp(FIREBASE_CONFIG);
-const col = firebase.firestore().collection("products");
+const col = firebase.firestore().collection("products"), FV = firebase.firestore.FieldValue;
 let items = [], editing = null, image = "";
 $("#cat").innerHTML = CATEGORIES.map(c => `<option>${c}</option>`).join("");
+
+// Oferta: muestra u oculta "Precio de antes" y cambia el rótulo del precio.
+function syncSale() {
+  const on = $("#sale").checked;
+  $("#oldWrap").hidden = !on; $("#old").required = on;
+  $("#priceLbl").textContent = on ? "Precio de ahora" : "Precio";
+}
+$("#sale").onchange = syncSale;
 
 $("#out").onclick = () => { sessionStorage.removeItem("rn-admin"); location.href = "index.html"; };
 col.orderBy("name").onSnapshot(s => { items = s.docs.map(d => ({ id: d.id, ...d.data() })); draw(); });
@@ -66,16 +78,20 @@ $("#img").onchange = e => {
 $("#pf").onsubmit = async e => {
   e.preventDefault();
   const d = { name: $("#name").value.trim(), price: +$("#price").value, stock: +$("#stock").value, category: $("#cat").value, active: $("#act").value === "1" };
-  if ($("#bulk").value) d.bulkPrice = +$("#bulk").value; else d.bulkPrice = firebase.firestore.FieldValue.delete();
+  const sale = $("#sale").checked;
+  if (sale && !(+$("#old").value > d.price)) return say("El precio de antes tiene que ser mayor al precio de ahora.");
+  const none = editing ? FV.delete() : null; // al editar se borra el campo; al crear queda vacío
+  d.bulkPrice = $("#bulk").value ? +$("#bulk").value : none;
+  d.oldPrice = sale ? +$("#old").value : none;
   if (image) d.image = image;
-  try { editing ? await col.doc(editing).update(d) : await col.add({ ...d, bulkPrice: d.bulkPrice instanceof Object ? null : d.bulkPrice }); say("Producto guardado."); reset(); }
+  try { editing ? await col.doc(editing).update(d) : await col.add(d); say("Producto guardado."); reset(); }
   catch (err) { say("No se pudo guardar: " + err.message); }
 };
-function reset() { editing = null; image = ""; $("#pf").reset(); $("#cancel").hidden = true; }
+function reset() { editing = null; image = ""; $("#pf").reset(); syncSale(); $("#cancel").hidden = true; }
 $("#cancel").onclick = reset;
 
 function draw() {
-  $("#rows").innerHTML = items.map(p => `<div class="row"><img src="${p.image || ""}" alt=""><div><b>${p.name}</b><br><small>${p.category} · $${p.price} · stock ${p.stock}${p.active === false ? " · oculto" : ""}</small></div>
+  $("#rows").innerHTML = items.map(p => `<div class="row"><img src="${p.image || ""}" alt=""><div><b>${p.name}</b><br><small>${p.category} · $${p.price}${p.oldPrice ? ` (antes $${p.oldPrice})` : ""} · stock ${p.stock}${p.active === false ? " · oculto" : ""}</small></div>
     <button class="btn" data-e="${p.id}">Editar</button><button class="btn" data-d="${p.id}">Borrar</button></div>`).join("") || "<p class='empty'>Todavía no cargaste productos.</p>";
 }
 $("#rows").onclick = async e => {
@@ -83,6 +99,7 @@ $("#rows").onclick = async e => {
   if (e.target.dataset.d) { if (confirm(`¿Borrar "${p.name}"?`)) col.doc(p.id).delete(); return; }
   editing = p.id; image = "";
   $("#name").value = p.name; $("#price").value = p.price; $("#bulk").value = p.bulkPrice || ""; $("#stock").value = p.stock;
+  $("#sale").checked = !!p.oldPrice; $("#old").value = p.oldPrice || ""; syncSale();
   $("#cat").value = p.category; $("#act").value = p.active === false ? "0" : "1"; $("#cancel").hidden = false; scrollTo(0, 0);
   say("Editando: " + p.name + " (si no elegís foto nueva, se mantiene la actual).");
 };
