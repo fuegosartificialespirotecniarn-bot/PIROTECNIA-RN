@@ -40,10 +40,10 @@ function renderCats() {
 }
 
 function card(p) {
-  const out = !(p.stock > 0), q = picks[p.id] || 1;
+  const out = !(p.stock > 0), q = picks[p.id] || 1, sale = p.oldPrice > p.price;
   return `<article class="card ${out ? "out" : ""}">
-    <div class="ph ${p.image ? "" : "none"}" ${p.image ? `data-zoom="${p.id}"` : ""}>${p.image ? `<img loading="lazy" src="${p.image}" alt="${p.name}">` : "🎆"}</div>
-    <div class="ci"><h3>${p.name}</h3><div class="price">${money(p.price)}</div>
+    <div class="ph ${p.image ? "" : "none"}" ${p.image ? `data-zoom="${p.id}"` : ""}>${p.image ? `<img loading="lazy" src="${p.image}" alt="${p.name}">` : "🎆"}${sale ? `<span class="off">-${Math.round((1 - p.price / p.oldPrice) * 100)}%</span>` : ""}</div>
+    <div class="ci"><h3>${p.name}</h3>${sale ? `<div class="was">Antes <s>${money(p.oldPrice)}</s></div>` : ""}<div class="price">${money(p.price)}</div>
     ${p.bulkPrice ? `<div class="bulk">Llevando ${BULK} o más productos surtidos: <b>${money(p.bulkPrice)}</b></div>` : ""}
     ${out ? `<div class="stock">Sin stock</div>` : `<div class="qty"><button data-m="${p.id}">−</button><span>${q}</span><button data-p="${p.id}">+</button></div>
     <div class="stock">${p.stock === 1 ? "¡ÚLTIMO DISPONIBLE!" : "Stock: " + p.stock}</div><div class="btns"><button class="btn" data-add="${p.id}">Añadir al carrito</button><button class="btn solid" data-buy="${p.id}">Comprar</button></div>`}</div></article>`;
